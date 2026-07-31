@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fuck-sol — live pump.fun bot surveillance</title>
+<meta name="description" content="Live on-chain surveillance of the bot swarms trading a pump.fun token. Reads Solana directly from your browser.">
+<style>
+  :root{
+    --bg:#07090c; --panel:#0d1117; --line:#1c2430; --ink:#d8e2ee; --dim:#7d8ea3;
+    --grn:#3ddc84; --red:#ff5c5c; --amb:#ffb454; --cy:#4cc9f0; --vio:#b18aff;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:14px;line-height:1.5}
+  a{color:var(--cy)}
+  .wrap{max-width:1100px;margin:0 auto;padding:18px 14px 60px}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between;
+    border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:18px}
+  h1{margin:0;font-size:19px;letter-spacing:.06em}
+  h1 span{color:var(--red)}
+  .sub{color:var(--dim);font-size:12px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .k{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.09em}
+  .v{font-size:20px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .v.sm{font-size:15px}
+  canvas{width:100%;height:120px;display:block}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:16px;overflow:hidden}
+  .phead{display:flex;justify-content:space-between;align-items:center;gap:8px;
+    padding:10px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--dim);
+    text-transform:uppercase;letter-spacing:.09em}
+  .scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+  th{text-align:left;color:var(--dim);font-weight:400;font-size:11px;text-transform:uppercase;
+    letter-spacing:.08em;padding:8px 14px;border-bottom:1px solid var(--line)}
+  td{padding:7px 14px;border-bottom:1px solid rgba(28,36,48,.5);font-variant-numeric:tabular-nums;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  .buy{color:var(--grn)} .sell{color:var(--red)}
+  .tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;border:1px solid}
+  .t-whale{color:var(--vio);border-color:#3c2d63;background:#170f27}
+  .t-bot{color:var(--amb);border-color:#4a3517;background:#1d1408}
+  .t-swarm{color:var(--red);border-color:#4d2020;background:#1d0b0b}
+  .t-new{color:var(--dim);border-color:var(--line)}
+  .actors{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1px;background:var(--line)}
+  .actor{background:var(--panel);padding:12px 14px}
+  .actor b{display:block;margin-bottom:3px}
+  .actor p{margin:0;color:var(--dim);font-size:12px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px}
+  input{flex:1;min-width:220px;background:#0a0e13;border:1px solid var(--line);color:var(--ink);
+    padding:8px 10px;border-radius:6px;font-family:var(--mono);font-size:12px}
+  button{background:#141c26;border:1px solid var(--line);color:var(--ink);padding:8px 14px;
+    border-radius:6px;font-family:var(--mono);font-size:12px;cursor:pointer}
+  button:hover{border-color:var(--cy);color:var(--cy)}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--grn);
+    margin-right:6px;vertical-align:middle;animation:p 2s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.25}}
+  footer{color:var(--dim);font-size:11px;border-top:1px solid var(--line);padding-top:14px;margin-top:24px}
+  .warn{color:var(--amb)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <h1>fuck<span>-</span>sol</h1>
+    <div class="sub">live on-chain surveillance — who is actually trading this pump.fun token</div>
+  </div>
+  <div class="sub"><span class="dot"></span><span id="status">connecting…</span></div>
+</header>
+
+<div class="bar">
+  <input id="rpc" placeholder="RPC endpoint (paste a Helius/QuickNode URL for reliability)">
+  <button id="save">use rpc</button>
+  <button id="refresh">refresh now</button>
+</div>
+
+<div class="grid">
+  <div class="card"><div class="k">price</div><div class="v" id="px">—</div></div>
+  <div class="card"><div class="k">pool liquidity</div><div class="v" id="liq">—</div></div>
+  <div class="card"><div class="k">tokens in pool</div><div class="v sm" id="tok">—</div></div>
+  <div class="card"><div class="k">last 60 min</div><div class="v sm" id="chg">—</div></div>
+</div>
+
+<div class="panel">
+  <div class="phead"><span>price — this session</span><span id="pxrange">—</span></div>
+  <canvas id="spark" width="1100" height="120"></canvas>
+</div>
+
+<div class="panel">
+  <div class="phead"><span>live trades</span><span id="feedmeta">—</span></div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>time</th><th>actor</th><th>side</th><th>tokens</th><th>tx</th></tr></thead>
+      <tbody id="feed"><tr><td colspan="5" style="color:var(--dim)">waiting for the chain…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="phead"><span>known actors — decoded 2026-07-31</span></div>
+  <div class="actors" id="actors"></div>
+</div>
+
+<footer>
+  Everything here is read straight from Solana by your own browser — no server, no API key, nothing stored.
+  Wallet labels come from a night of manual on-chain forensics; they are behavioural, not identities.
+  Not financial advice. Memecoins go to zero.
+  <span class="warn">Public RPCs rate-limit hard — paste your own endpoint above if the feed stalls.</span>
+</footer>
+
+</div>
+
+<script>
+const CFG = {
+  symbol:   'StickCat',
+  mint:     'EozrHRrxqTCuba2Gw5hdevZEa2etoZ8wF5wYxfsJpump',
+  pool:     '3gWtGnpmysiY6yPgd1p8n52tsPH8YmioHtZa5ZJuCPtL',
+  baseVault:'8bywkH5bkXbFWKHDjud6EvHm1u1dciJgLdV5Tf1ngx9J',
+  quoteVault:'Be1oADg7Qj48NWsvq7MWgvb5oWBDSCnc8gEGnfa8U6Rd',
+  pollMs:   20000,
+};
+
+const TAGS = {
+  '8zycJRQ3FGgpWjr11X3wsQf469teQLnHzm9vxvF3Wxdr': ['WHALE-1','whale'],
+  '4LdSdZg92WszND4yQZLiaperjANab29fdstjmcEq9Y51': ['WHALE-2','whale'],
+  '4U9wC3yYQmxaBSNJHhCbfPk9pGVSbTrMMRALGmzugxkT': ['REPAINT-WHALE','whale'],
+  'H5K3Ge6ZNevxsdf7dW6dWcNkSgv7VqJxzhYQDEZnrtva': ['HOLDER-3','whale'],
+  'AY7Lb6Dy7QEHSvfMwzuaDg6g3Edn4GfQUBQqLERuq4ie': ['HOLDER-4','whale'],
+  '2tgUbS9UMoQD6GkDZBiqKYCURnGrSb6ocYwRABrSJUvY': ['CLUSTER-A1','bot'],
+  '8zkgFGVZrDLieViwqiXFCydSX6WL5hsxmUu55yBdsNsZ': ['CLUSTER-A2','bot'],
+  'GiQXNrVwVWSFN2xhFFBB4MGK7j2Lra5krPH7ty2MRc5':  ['CLUSTER-A3','bot'],
+  'BGzLYcFcUZkW5GPZZAYK4Jxyf1W7aigyHQbvmKsQeeuq': ['SCALPER-1','bot'],
+  'FncazAs6omJJjtLVzquzT9KoyXn6tFixr9kGjr42ktLj': ['FNCAZ-CONTROLLER','swarm'],
+};
+[ '7H82aKv7ajvNCNT7gGJiX8QQPyQkDNVCfhbdbdBAznQV','2h2R9ckawJih5vpa5ogrdEbnYaCVgPMLbEmEMUt7M9wB',
+  '5WhHVuyeYoAh9fpggkWV7Z4tfjRNT4Yi21VS9nWxoXkK','3jAmwfdYVMZh1yCAoQNGkxsj1YRJS3PZpuReJnBB6PV9',
+  '9egUG9YDndijoayG2yTLpM9VXMXvmoxCytoWZFMBopZo','2ebJ4qoTbTo93pHU7uueExKbmU9tYtWQYQQVTMf8ouGL',
+  'ARu4n5mFdZogZAravu7CcizaojWnS6oqka37gdLT5SZn','33gYNG9A2MhWtbysRm7qhtoPvHitdyr5UdYyS4ZgxqHB',
+  '9dE7Ay1KcaEQsBZxSNyJpqhQqB9prNNy5knoEB66WWpA','DZE9scd24zSuQSFC8eFWaySH4HmLVbjPZ1oyr9N1mMMR',
+  'ASuKDowN7Sg2k5PKPQGxkErcW4oSfhyBWmkUj98qCCW5','8pa3QBsM7eKemQEY6unu6XWGwXLrQ8ZG4KXnVyetoLSB',
+  '7sa96LpPG5LP3nXu49HGKuCGjpFCQ3cbKYMBqjWELFTN','81cyWDnEL5PoSEkdeHcbEwBvgCPTs3Lq4RXtrTC2FpS4',
+  'FwNm7zo8eq39BDPxwiGKFH1R1esFVgjvZ2S6ns129VSB','82EomPckGg6LUSMJfagcgd4L4BAdGdVugmsXDs3C2y6T',
+  'GN4uqGLgLBcuovPmn7Vwv6KHDncKaJ4AU9kT2RLjjY5m','7qA8EV2F28XwjxVxKJBQWPgBG3YSC2dNiXm3iioRJmHn',
+  'E1M9rAFbZYGFhQr7TZv5toaw4Su3H2SiR7o8UpMYAkzt','6tvGuq7XmjtZsFoiZiw9wycEHT8HaXhWmLtgnYGMu1gF',
+  'CeginUnvVydCwFzKqFcgcPK6M3bX6kkzFK4cpPK938gy','EfiiGBPV9KNWE37nkkAVRbTHHvQgZqmbv5pCLogZyQBs'
+].forEach(a => TAGS[a] = ['FNCAZ-SWARM','swarm']);
+
+const ACTORS = [
+  ['CLUSTER-A1 / A2 / A3','bot','Scalp bots, 60–190 SOL each. Split every order into identical-size chunks, follow any large buy within 2–4 seconds, and dump the whole position 2½–8 minutes later. Sweep profits to cold collectors.'],
+  ['FNCAZ swarm','swarm','One controller (71+ SOL) funding 20+ disposable wallets with exactly 0.100 SOL each, then sweeping the balance straight back after the trade. Wallet-level P&L for these always reads as a loss — the money never stays. Judge them by funding pattern, not by balance.'],
+  ['WHALE-1 / WHALE-2','whale','Held real size through the pump, then distributed in halves into the bounce. Both fully exited during the 21:42–21:48 cascade.'],
+  ['REPAINT-WHALE','whale','Appeared minutes after the capitulation and absorbed ~53M tokens from the wallets dumping into it. Either a genuine bottom-fisher or the same operator reloading from a clean address to reset the chart optics.'],
+  ['dev-wallet trackers','bot','Not shown here (different token). They mirror a deployer wallet in the SAME BLOCK — buys and sells alike — and trigger on the event, not the size. A $0.33 test sell fires the same echo as a full exit.'],
+];
+
+let RPC = localStorage.getItem('rpc') || 'https://api.mainnet-beta.solana.com';
+document.getElementById('rpc').value = RPC;
+
+let seen = new Set();
+let trades = [];
+let px = JSON.parse(localStorage.getItem('px') || '[]');
+
+const el = id => document.getElementById(id);
+const fmt = n => n.toLocaleString(undefined,{maximumFractionDigits:0});
+
+async function rpc(method, params){
+  const r = await fetch(RPC, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({jsonrpc:'2.0', id:1, method, params})
+  });
+  if(!r.ok) throw new Error(r.status + ' ' + r.statusText);
+  const j = await r.json();
+  if(j.error) throw new Error(j.error.message || 'rpc error');
+  return j.result;
+}
+
+function tagFor(addr){
+  const t = TAGS[addr];
+  if(t) return {name:t[0], cls:'t-'+(t[1]==='whale'?'whale':t[1]==='swarm'?'swarm':'bot')};
+  return {name: addr.slice(0,6)+'…', cls:'t-new'};
+}
+
+function drawSpark(){
+  const c = el('spark'), ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0,0,W,H);
+  if(px.length < 2) return;
+  const vals = px.map(p=>p.v);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const span = (hi-lo)||1;
+  ctx.beginPath();
+  px.forEach((p,i)=>{
+    const x = (i/(px.length-1))*W;
+    const y = H - 12 - ((p.v-lo)/span)*(H-28);
+    i ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+  });
+  const up = vals[vals.length-1] >= vals[0];
+  ctx.strokeStyle = up ? '#3ddc84' : '#ff5c5c';
+  ctx.lineWidth = 2; ctx.stroke();
+  ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
+  ctx.fillStyle = up ? 'rgba(61,220,132,.08)' : 'rgba(255,92,92,.08)';
+  ctx.fill();
+  el('pxrange').textContent = lo.toExponential(2) + '  →  ' + hi.toExponential(2) + ' SOL';
+}
+
+function renderFeed(){
+  const tb = el('feed');
+  if(!trades.length){ return; }
+  tb.innerHTML = trades.slice(0,40).map(t=>{
+    const tag = tagFor(t.who);
+    return `<tr>
+      <td style="color:var(--dim)">${t.time}</td>
+      <td><span class="tag ${tag.cls}">${tag.name}</span></td>
+      <td class="${t.side==='BUY'?'buy':'sell'}">${t.side}</td>
+      <td>${fmt(t.tokens)}${t.chunks>1?` <span style="color:var(--dim)">×${t.chunks}</span>`:''}</td>
+      <td><a href="https://solscan.io/tx/${t.sig}" target="_blank" rel="noopener">${t.sig.slice(0,6)}…</a></td>
+    </tr>`;
+  }).join('');
+  el('feedmeta').textContent = trades.length + ' trades seen this session';
+}
+
+async function tick(){
+  try{
+    el('status').textContent = 'reading chain…';
+
+    const [base, quote] = await Promise.all([
+      rpc('getTokenAccountBalance',[CFG.baseVault]),
+      rpc('getTokenAccountBalance',[CFG.quoteVault]),
+    ]);
+    const tokens = base.value.uiAmount, sol = quote.value.uiAmount;
+    const price = sol/tokens;
+
+    el('px').textContent  = price.toExponential(3);
+    el('liq').textContent = sol.toFixed(1) + ' SOL';
+    el('tok').textContent = fmt(tokens);
+
+    px.push({t:Date.now(), v:price});
+    px = px.filter(p => Date.now()-p.t < 6*3600*1000).slice(-600);
+    localStorage.setItem('px', JSON.stringify(px));
+
+    const hourAgo = px.find(p => Date.now()-p.t < 3600*1000);
+    if(hourAgo){
+      const ch = (price/hourAgo.v - 1)*100;
+      const e = el('chg');
+      e.textContent = (ch>=0?'+':'') + ch.toFixed(1) + '%';
+      e.style.color = ch>=0 ? 'var(--grn)' : 'var(--red)';
+    }
+    drawSpark();
+
+    const sigs = await rpc('getSignaturesForAddress',[CFG.pool,{limit:12}]);
+    const fresh = sigs.filter(s => !seen.has(s.signature) && !s.err).reverse();
+    const firstRun = seen.size === 0;
+    for(const s of fresh){
+      seen.add(s.signature);
+      if(firstRun && fresh.indexOf(s) < fresh.length-6) continue;  // don't flood on load
+      let tx;
+      try { tx = await rpc('getTransaction',[s.signature,{encoding:'jsonParsed',maxSupportedTransactionVersion:0}]); }
+      catch(e){ continue; }
+      if(!tx) continue;
+      const keys = tx.transaction.message.accountKeys;
+      const who = (keys[0].pubkey||keys[0]);
+      const pre = (tx.meta.preTokenBalances||[]).find(b=>b.mint===CFG.mint && b.owner===who);
+      const post= (tx.meta.postTokenBalances||[]).find(b=>b.mint===CFG.mint && b.owner===who);
+      const d = (post?.uiTokenAmount.uiAmount||0)-(pre?.uiTokenAmount.uiAmount||0);
+      if(!d) continue;
+      const time = new Date(s.blockTime*1000).toLocaleTimeString();
+      const last = trades[0];
+      if(last && last.who===who && last.time===time && last.side===(d>0?'BUY':'SELL')){
+        last.tokens += Math.abs(d); last.chunks++;      // collapse split orders
+      } else {
+        trades.unshift({time, who, side:d>0?'BUY':'SELL', tokens:Math.abs(d), sig:s.signature, chunks:1});
+      }
+    }
+    trades = trades.slice(0,120);
+    renderFeed();
+    el('status').textContent = 'live · updated ' + new Date().toLocaleTimeString();
+  }catch(e){
+    el('status').textContent = 'rpc error: ' + e.message + ' — paste your own endpoint above';
+  }
+}
+
+el('actors').innerHTML = ACTORS.map(([n,c,d])=>
+  `<div class="actor"><b class="tag t-${c==='whale'?'whale':c==='swarm'?'swarm':'bot'}" style="border:none;background:none;padding:0">${n}</b><p>${d}</p></div>`
+).join('');
+
+el('save').onclick = () => {
+  RPC = el('rpc').value.trim() || RPC;
+  localStorage.setItem('rpc', RPC);
+  tick();
+};
+el('refresh').onclick = tick;
+
+tick();
+setInterval(tick, CFG.pollMs);
+</script>
+</body>
+</html>
