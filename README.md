@@ -4,6 +4,12 @@ Live on-chain surveillance of the bot swarms trading a pump.fun token.
 
 **Watch it:** https://nucash-mining.github.io/fuck-sol/
 
+## Currently watching
+
+**DCA — Dollar Cat Average** (`DPvD1PfJETKBV7hEJkJG68zR9kM9YuoCccHFPRSFpump`), PumpSwap pool `GH68kEZAiVEwL8636XxhR1BuuNb471kEp1UAweSrtbsZ`.
+The wallet labels below were decoded on a different token the same week — these
+operators work whatever pool is moving, so expect to see them here too.
+
 ## What this is
 
 One night of manual on-chain forensics, turned into a dashboard. It reads the
@@ -48,7 +54,7 @@ Edit the `CFG` block at the top of the `<script>` in `index.html`:
 
 ```js
 const CFG = {
-  symbol: 'StickCat',
+  symbol: 'DCA',
   mint:   '…',   // token mint
   pool:   '…',   // PumpSwap pool account
   baseVault:  '…',   // pool's token vault
