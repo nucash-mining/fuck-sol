@@ -6,7 +6,7 @@ Live on-chain surveillance of the bot swarms trading a pump.fun token.
 
 ## Currently watching
 
-**DCA — Dollar Cat Average** (`DPvD1PfJETKBV7hEJkJG68zR9kM9YuoCccHFPRSFpump`), PumpSwap pool `GH68kEZAiVEwL8636XxhR1BuuNb471kEp1UAweSrtbsZ`.
+**DANNY — Danny DeVito** (`8kAYCongF4r6kVKe2uhDTJZhTEANcyAjUn3ZqgGxpump`), PumpSwap pool `4wsNKcBsC5aeFArbiwjgUdALht5L4z5VrzpjnosCjqB` — a ~288 SOL pool, far deeper than the ones these labels were decoded on.
 The wallet labels below were decoded on a different token the same week — these
 operators work whatever pool is moving, so expect to see them here too.
 
